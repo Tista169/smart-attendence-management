@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Attendance Management - Enterprise Attendance & Academic Platform</title>
+  <meta name="description" content="Production-grade Online Smart Student Attendance System with Multi-Role Portals, One-click & Bulk roll call, Lock/Finalize sessions, Dynamic QR, AI Face Biometrics, GPS Geofencing, Full Faculty & Class Management, Audit Logs, and Multi-type Reports.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Application CSS -->
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/smart-attendance.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+  <!-- ================= AUTHENTICATION / LOGIN SCREEN ================= -->
+  <div id="login-screen" style="display: none; min-height: 100vh; width: 100vw; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(circle at center, rgba(30, 41, 59, 0.7), rgba(11, 15, 25, 0.98));">
+    <div class="card" id="login-card-container" style="width: 100%; max-width: 440px; padding: 2.25rem; border-color: var(--border-glow); box-shadow: var(--shadow-xl);">
+      <!-- Rendered dynamically by App.renderLoginScreen -->
+    </div>
+  </div>
+
+  <!-- ================= AUTHENTICATED APPLICATION SHELL ================= -->
+  <div id="app-root" style="display: flex;">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar" id="main-sidebar">
+      <div style="padding: 1.25rem 1.25rem 0.5rem 1.25rem;">
+        <a href="#" class="brand-logo">
+          <div class="brand-icon">
+            <i data-lucide="shield-check"></i>
+          </div>
+          <div>
+            <div class="brand-title">Smart Attendance</div>
+            <div class="brand-subtitle">Management</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Navigation Links Container -->
+      <nav class="sidebar-nav" id="sidebar-nav-list"></nav>
+
+      <!-- Sidebar Status Footer -->
+      <div class="sidebar-footer">
+        <div class="system-status-pill">
+          <div class="status-dot-pulse"></div>
+          <span>Biometric AI: <strong>Online</strong></span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      
+      <!-- Top Application Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <div style="font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="sparkles" style="color: var(--primary);"></i>
+            <span>University Portal</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- Role Switcher Pills -->
+          <div class="role-pill-group" title="Switch Portal Role">
+            <button class="role-btn" data-role="admin" onclick="App.switchRole('admin')">
+              <i data-lucide="shield"></i> Admin
+            </button>
+            <button class="role-btn active" data-role="teacher" onclick="App.switchRole('teacher')">
+              <i data-lucide="graduation-cap"></i> Teacher
+            </button>
+            <button class="role-btn" data-role="student" onclick="App.switchRole('student')">
+              <i data-lucide="user"></i> Student
+            </button>
+          </div>
+
+          <!-- Theme Toggle -->
+          <button class="btn btn-outline btn-icon" title="Toggle Dark/Light Mode" onclick="App.toggleTheme()">
+            <i data-lucide="sun-moon"></i>
+          </button>
+
+          <!-- Active User Badge -->
+          <div class="user-badge" id="header-user-badge" onclick="App.navigate('profile')" title="View & Edit My Profile"></div>
+
+          <!-- Logout Button -->
+          <button class="btn btn-outline btn-sm" title="Sign Out" onclick="Auth.logout()" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3);">
+            <i data-lucide="log-out"></i> Logout
+          </button>
+        </div>
+      </header>
+
+      <!-- Dynamic Viewport Container -->
+      <main class="content-container" id="view-container">
+        <!-- Rendered dynamically by App router -->
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ================= MODALS & DRAWERS ================= -->
+
+  <!-- 1. Dynamic QR Presenter Modal (Teacher Classroom Projector) -->
+  <div class="modal-backdrop" id="qr-presenter-modal">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <span class="badge badge-primary">Live Classroom Session</span>
+          <h3 id="modal-session-title" style="font-size: 1.3rem; margin-top: 4px;">CS301: Distributed Cloud Systems</h3>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="SmartAttendance.stopSession(); document.getElementById('qr-presenter-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="qr-presenter-card">
+          <!-- Rotating Token & Countdown Timer -->
+          <div class="token-refresh-bar">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <div class="timer-circle-container">
+                <svg class="timer-svg" viewBox="0 0 38 38">
+                  <circle class="timer-circle-bg" cx="19" cy="19" r="16" />
+                  <circle class="timer-circle-progress" id="qr-timer-progress" cx="19" cy="19" r="16" />
+                </svg>
+                <span class="timer-number" id="qr-timer-number">10</span>
+              </div>
+              <div style="font-size: 0.75rem; text-align: left;">
+                <div style="color: var(--text-muted);">AUTO-REFRESH</div>
+                <div style="font-weight: 700; color: var(--text-primary);">Token Rotating</div>
+              </div>
+            </div>
+            <div class="token-hash-text" id="active-token-hash">SEC-TOKEN-XXXX</div>
+          </div>
+
+          <!-- QR Box with futuristic brackets -->
+          <div class="qr-box-wrapper">
+            <div class="qr-bracket tl"></div>
+            <div class="qr-bracket tr"></div>
+            <div class="qr-bracket bl"></div>
+            <div class="qr-bracket br"></div>
+            <div class="qr-canvas-container" id="active-qr-canvas"></div>
+          </div>
+
+          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Fallback Passcode PIN: <strong id="modal-session-pin" style="color: var(--warning); font-size: 1.2rem; letter-spacing: 0.1em; background: rgba(0,0,0,0.4); padding: 2px 10px; border-radius: 4px;">----</strong>
+          </div>
+
+          <!-- Live Scanned Attendees Counter -->
+          <div class="live-attendee-counter">
+            <div class="status-dot-pulse"></div>
+            <div style="font-weight: 700; font-size: 0.9rem;" id="modal-scanned-count">0 Checked In</div>
+            <div class="attendee-avatars" id="modal-scanned-attendees"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="SmartAttendance.stopSession(); document.getElementById('qr-presenter-modal').classList.remove('active');">
+          End Session
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Student Camera QR Scanner Modal -->
+  <div class="modal-backdrop" id="student-qr-modal">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="qr-code" style="color: var(--primary);"></i> Scan Dynamic Class QR
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary);">Point your camera at the teacher's projected screen</p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="SmartAttendance.stopCamera(); document.getElementById('student-qr-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="text-align: center;">
+        <div class="face-scanner-viewport" style="height: 300px;">
+          <video id="student-qr-video" class="face-video-feed" autoplay playsinline muted></video>
+          <div class="face-hud-overlay">
+            <div class="hud-top-bar">
+              <span>CAMERA SCANNER ACTIVE</span>
+              <span>1080p WebRTC</span>
+            </div>
+            <div class="face-target-reticle" style="border-radius: 12px; width: 180px; height: 180px;"></div>
+            <div class="face-laser-line"></div>
+            <div class="hud-bottom-bar">
+              <span style="font-size: 0.8rem;">Align QR code inside target reticle</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.25rem;">
+          <button class="btn btn-primary" style="width: 100%;" onclick="SmartAttendance.recordSuccessfulCheckIn({ method: 'Dynamic QR', confidence: 99.8 })">
+            <i data-lucide="check-circle"></i> Confirm QR Scan Check-In
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. AI Biometric Face Recognition Modal -->
+  <div class="modal-backdrop" id="student-face-modal">
+    <div class="modal-content" style="max-width: 540px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="scan-face" style="color: var(--accent-cyan);"></i> AI Biometric Face Verification
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary);">Live neural facial landmark recognition & anti-spoofing</p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="SmartAttendance.stopCamera(); document.getElementById('student-face-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="text-align: center;">
+        <div class="face-scanner-viewport">
+          <video id="student-face-video" class="face-video-feed" autoplay playsinline muted></video>
+          <div class="face-hud-overlay">
+            <div class="hud-top-bar">
+              <span>AI NEURAL VISION 2.4</span>
+              <span id="face-confidence-text">0%</span>
+            </div>
+            <div class="face-target-reticle"></div>
+            <div class="face-laser-line"></div>
+            <div class="hud-bottom-bar">
+              <div id="face-scan-status-text" style="font-size: 0.82rem; font-weight: 700; color: #ffffff;">
+                Initializing biometric camera...
+              </div>
+              <div class="confidence-gauge-bar">
+                <div class="confidence-gauge-fill" id="face-confidence-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Campus Geofence GPS Check-in Modal -->
+  <div class="modal-backdrop" id="student-geofence-modal">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="map-pin" style="color: var(--success);"></i> Campus Geofence GPS Verify
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary);">Verifies your GPS coordinates against classroom epicenter</p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('student-geofence-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="text-align: center;">
+        <div class="geofence-radar-box">
+          <div class="radar-ring r1"></div>
+          <div class="radar-ring r2"></div>
+          <div class="radar-ring r3"></div>
+          <div class="radar-center-pin" title="Campus Center"></div>
+          <div class="radar-student-pin" style="top: 45%; left: 55%;" title="You"></div>
+        </div>
+
+        <div id="geofence-status-text" style="font-size: 0.95rem; margin-bottom: 0.4rem;">
+          Acquiring satellite lock...
+        </div>
+        <div id="geofence-distance-text" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Calculating Haversine distance...
+        </div>
+
+        <button class="btn btn-success btn-lg" style="width: 100%;" onclick="SmartAttendance.recordSuccessfulCheckIn({ method: 'Campus Geofence GPS', confidence: 100 })">
+          <i data-lucide="map-pin"></i> Submit GPS Verified Check-In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Fast 4-Digit PIN Modal -->
+  <div class="modal-backdrop" id="pin-entry-modal">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="key-round" style="color: var(--warning);"></i> Enter Session PIN
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary);">Enter the 4-digit code announced by your instructor</p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('pin-entry-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="text-align: center;">
+        <div class="form-group">
+          <input type="text" maxlength="4" id="student-pin-input" class="form-control" placeholder="4-Digit PIN" style="font-size: 2rem; text-align: center; letter-spacing: 0.4em; font-family: 'Outfit', sans-serif; font-weight: 800;" />
+        </div>
+        <button class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1rem;" onclick="App.handlePINSubmit()">
+          Verify PIN & Check In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Add Student Modal -->
+  <div class="modal-backdrop" id="add-student-modal">
+    <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Add New Student</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('add-student-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="StudentMgmt.handleAddStudentSubmit(event)">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input type="text" id="new-student-name" class="form-control" placeholder="Jordan Miller" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Roll Number</label>
+              <input type="text" id="new-student-roll" class="form-control" placeholder="CS24-099" />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="new-student-email" class="form-control" placeholder="jordan@student.apex.edu" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" id="new-student-dob" class="form-control" value="2004-06-14" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department / Class</label>
+            <select id="new-student-dept" class="form-control">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Cybersecurity">Cybersecurity</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Guardian Name</label>
+              <input type="text" id="new-student-guardian-name" class="form-control" placeholder="Robert Miller" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Guardian Phone</label>
+              <input type="text" id="new-student-guardian-phone" class="form-control" placeholder="+1 (555) 000-0001" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('add-student-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Student Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Edit Student Modal -->
+  <div class="modal-backdrop" id="edit-student-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Edit Student Profile</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('edit-student-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="StudentMgmt.handleEditStudentSubmit(event)">
+        <input type="hidden" id="edit-student-id" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" id="edit-student-name" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="edit-student-email" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="edit-student-dept" class="form-control">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Cybersecurity">Cybersecurity</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('edit-student-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Details</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Add Teacher Modal -->
+  <div class="modal-backdrop" id="add-teacher-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Add Faculty Member</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('add-teacher-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="TeacherMgmt.handleAddTeacherSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Faculty Name</label>
+            <input type="text" id="new-teacher-name" class="form-control" placeholder="Prof. Alan Turing" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="new-teacher-email" class="form-control" placeholder="alan.turing@apex.edu" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="new-teacher-dept" class="form-control">
+              <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Cybersecurity & Networks">Cybersecurity & Networks</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Cabin / Office</label>
+              <input type="text" id="new-teacher-cabin" class="form-control" placeholder="Room 402, Block A" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="text" id="new-teacher-phone" class="form-control" placeholder="+1 (555) 234-5678" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('add-teacher-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Faculty</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 9. Edit Teacher Modal -->
+  <div class="modal-backdrop" id="edit-teacher-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Edit Faculty Details</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('edit-teacher-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="TeacherMgmt.handleEditTeacherSubmit(event)">
+        <input type="hidden" id="edit-teacher-id" />
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Faculty Name</label>
+            <input type="text" id="edit-teacher-name" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="edit-teacher-email" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="edit-teacher-dept" class="form-control">
+              <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Cybersecurity & Networks">Cybersecurity & Networks</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Cabin</label>
+              <input type="text" id="edit-teacher-cabin" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="text" id="edit-teacher-phone" class="form-control" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('edit-teacher-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Details</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 10. Assign Subjects Modal -->
+  <div class="modal-backdrop" id="assign-subjects-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 800;">Assign Courses / Subjects</h3>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">Faculty: <strong id="assign-teacher-name-display">--</strong></p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('assign-subjects-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="TeacherMgmt.handleAssignSubjectsSubmit(event)">
+        <input type="hidden" id="assign-teacher-id" />
+        <div class="modal-body">
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;" id="assign-subjects-checkbox-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('assign-subjects-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Assignments</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 11. Add Class Modal -->
+  <div class="modal-backdrop" id="add-class-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Create New Course / Class</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('add-class-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="ClassMgmt.handleAddClassSubmit(event)">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Course Code</label>
+              <input type="text" id="new-class-code" class="form-control" placeholder="CS-306" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Course Name</label>
+              <input type="text" id="new-class-name" class="form-control" placeholder="Quantum Computing Basics" required />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Department</label>
+              <select id="new-class-dept" class="form-control">
+                <option value="Computer Science">Computer Science</option>
+                <option value="Artificial Intelligence">Artificial Intelligence</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Cybersecurity">Cybersecurity</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Credits</label>
+              <input type="number" id="new-class-credits" class="form-control" value="4" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned Instructor</label>
+            <select id="new-class-teacher" class="form-control"></select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Schedule</label>
+              <input type="text" id="new-class-schedule" class="form-control" placeholder="Mon, Wed 10:00 AM" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Room</label>
+              <input type="text" id="new-class-room" class="form-control" placeholder="Lab 302" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('add-class-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 12. Edit Class Modal -->
+  <div class="modal-backdrop" id="edit-class-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Edit Course Details</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('edit-class-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="ClassMgmt.handleEditClassSubmit(event)">
+        <input type="hidden" id="edit-class-id" />
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Course Code</label>
+              <input type="text" id="edit-class-code" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Course Name</label>
+              <input type="text" id="edit-class-name" class="form-control" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select id="edit-class-dept" class="form-control">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Artificial Intelligence">Artificial Intelligence</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Cybersecurity">Cybersecurity</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned Instructor</label>
+            <select id="edit-class-teacher" class="form-control"></select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Schedule</label>
+              <input type="text" id="edit-class-schedule" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Room</label>
+              <input type="text" id="edit-class-room" class="form-control" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('edit-class-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Course</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 13. Add Academic Session Modal -->
+  <div class="modal-backdrop" id="add-session-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Add Academic Term</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('add-session-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="AcademicSessionMgmt.handleAddSessionSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Session Name</label>
+            <input type="text" id="new-session-name" class="form-control" placeholder="Fall 2027" required />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Start Date</label>
+              <input type="date" id="new-session-start" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Date</label>
+              <input type="date" id="new-session-end" class="form-control" required />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+              <input type="checkbox" id="new-session-current" />
+              Set as current active term
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('add-session-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Term</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 14. Create Broadcast Announcement Modal -->
+  <div class="modal-backdrop" id="create-announcement-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Broadcast Official Announcement</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('create-announcement-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="Announcements.handleCreateSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Announcement Title</label>
+            <input type="text" id="new-ann-title" class="form-control" placeholder="Campus Holiday Notice" required />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Target Audience</label>
+              <select id="new-ann-audience" class="form-control">
+                <option value="All">All Portals (Campus-Wide)</option>
+                <option value="Students">Students Only</option>
+                <option value="Teachers">Faculty / Teachers Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority</label>
+              <select id="new-ann-priority" class="form-control">
+                <option value="Normal">Normal</option>
+                <option value="Important">Important</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Announcement Body</label>
+            <textarea id="new-ann-content" class="form-control" rows="4" placeholder="Enter notice content..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('create-announcement-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Dispatch Announcement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 15. Attendance Override Authorization Modal (Admin) -->
+  <div class="modal-backdrop" id="attendance-override-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span class="badge badge-warning">Administrative Authorization</span>
+          <h3 style="font-size: 1.2rem; margin-top: 4px;">Authorized Attendance Record Override</h3>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('attendance-override-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="Reports.handleOverrideSubmit(event)">
+        <input type="hidden" id="override-log-id" />
+        <div class="modal-body">
+          <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            <div>👤 <strong>Student:</strong> <span id="override-student-name">--</span></div>
+            <div>📚 <strong>Subject & Date:</strong> <span id="override-subject-date">--</span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Change Status To</label>
+            <select id="override-new-status" class="form-control">
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Absent">Absent</option>
+              <option value="Excused">Excused / Approved Leave</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Administrative Reason / Justification (Logged to Audit Trail)</label>
+            <textarea id="override-reason" class="form-control" rows="3" placeholder="Approved medical certificate submitted to Dean's office" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('attendance-override-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Confirm & Log Override</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 16. Parent Notification Alert Modal -->
+  <div class="modal-backdrop" id="parent-alert-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span class="badge badge-danger">Official Academic Notice</span>
+          <h3 style="font-size: 1.2rem; margin-top: 4px;">Low Attendance Guardian Notification</h3>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('parent-alert-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 1.25rem; background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md);">
+          <div>👤 <strong>Student:</strong> <span id="parent-alert-student-name">--</span></div>
+          <div>👨‍👧 <strong>Guardian:</strong> <span id="parent-alert-guardian-name">--</span></div>
+          <div>📱 <strong>Mobile:</strong> <span id="parent-alert-guardian-phone">--</span></div>
+          <div>✉️ <strong>Email:</strong> <span id="parent-alert-guardian-email">--</span></div>
+          <div>⚠️ <strong>Current Attendance:</strong> <span id="parent-alert-pct" style="color: var(--danger); font-weight: 800;">--</span></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notification Message (SMS / WhatsApp / Email)</label>
+          <textarea id="parent-alert-message" class="form-control" rows="5" style="resize: vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="document.getElementById('parent-alert-modal').classList.remove('active');">Cancel</button>
+        <button class="btn btn-danger" onclick="StudentMgmt.sendParentNotification()">
+          <i data-lucide="send"></i> Dispatch Parent Notice
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 17. Student Leave Application Modal -->
+  <div class="modal-backdrop" id="leave-app-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="font-size: 1.2rem; font-weight: 800;">Apply for Academic Leave</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="document.getElementById('leave-app-modal').classList.remove('active');">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form onsubmit="App.handleLeaveApplicationSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Subject / Course</label>
+            <select id="leave-subject" class="form-control">
+              <option value="CS301">CS-301: Distributed Cloud Systems</option>
+              <option value="CS302">CS-302: Deep Learning & Neural Nets</option>
+              <option value="CS303">CS-303: Advanced Database Architecture</option>
+              <option value="CS304">CS-304: Full-Stack Web Engineering</option>
+            </select>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">From Date</label>
+              <input type="date" id="leave-from" class="form-control" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">To Date</label>
+              <input type="date" id="leave-to" class="form-control" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reason for Absence</label>
+            <textarea id="leave-reason" class="form-control" rows="3" placeholder="Provide reason (medical, academic conference, family emergency)..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('leave-app-modal').classList.remove('active');">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Application</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 18. Printable Institutional PDF Report Sheet Modal -->
+  <div class="modal-backdrop" id="printable-report-modal">
+    <div class="modal-content" style="max-width: 800px; background: #ffffff; color: #000000;">
+      <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+        <span style="font-weight: 700; color: #0f172a;" id="print-date-display">Official Attendance Sheet</span>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-primary btn-sm" onclick="Reports.printReport()">
+            <i data-lucide="printer"></i> Print / Save as PDF
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('printable-report-modal').classList.remove('active');">
+            Close
+          </button>
+        </div>
+      </div>
+      <div class="modal-body" id="print-body-content" style="padding: 2rem;"></div>
+    </div>
+  </div>
+
+  <!-- 19. Sliding Student Profile Drawer -->
+  <div class="drawer-backdrop" id="student-profile-drawer" onclick="if (event.target === this) StudentMgmt.closeProfileDrawer();">
+    <div class="drawer-content">
+      <div style="padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 1.1rem; font-weight: 700;">Student Academic Profile</h3>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="StudentMgmt.closeProfileDrawer()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div style="padding: 1.5rem;" id="profile-drawer-body"></div>
+    </div>
+  </div>
+
+  <!-- 20. Edit User Profile Modal -->
+  <div class="modal-backdrop" id="edit-profile-modal">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge badge-primary" id="edit-profile-role-badge">STUDENT</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Account Settings</span>
+          </div>
+          <h3 style="font-size: 1.25rem; font-weight: 800; margin-top: 4px; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="user-cog" style="color: var(--primary);"></i> Edit Profile Details
+          </h3>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="App.closeEditProfileModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form onsubmit="App.handleEditProfileSubmit(event)">
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+          
+          <!-- Avatar Customization Block -->
+          <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+            <label class="form-label" style="margin-bottom: 0.75rem;">Profile Picture & Avatar</label>
+            <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+              <div style="position: relative; width: 76px; height: 76px; flex-shrink: 0;">
+                <img id="edit-profile-avatar-preview" src="" alt="Avatar Preview" style="width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); box-shadow: var(--shadow-md);" />
+                <label for="edit-profile-avatar-file-input" style="position: absolute; bottom: -4px; right: -4px; background: var(--primary); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--bg-surface);" title="Upload local image">
+                  <i data-lucide="camera" style="width: 14px; height: 14px;"></i>
+                </label>
+                <input type="file" id="edit-profile-avatar-file-input" accept="image/*" style="display: none;" onchange="App.handleAvatarFileUpload(event)" />
+              </div>
+
+              <div style="flex: 1; min-width: 220px;">
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                  <label style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Image URL (or upload image from device)</label>
+                  <input type="url" id="edit-profile-avatar-url" class="form-control" placeholder="https://images.unsplash.com/..." oninput="App.previewAvatarUrl(this.value)" />
+                </div>
+                <!-- Preset Avatars Gallery -->
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                  <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Presets:</span>
+                  <div class="avatar-preset-list" id="avatar-preset-thumbnails" style="display: flex; gap: 6px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Basic Personal Details -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Full Name <span style="color: var(--danger);">*</span></label>
+              <input type="text" id="edit-profile-name" class="form-control" placeholder="Dean Vance / Dr. Sarah / Alex" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address <span style="color: var(--danger);">*</span></label>
+              <input type="email" id="edit-profile-email" class="form-control" placeholder="user@apex.edu" required />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input type="tel" id="edit-profile-phone" class="form-control" placeholder="+1 (555) 000-0000" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Designation / Title</label>
+              <input type="text" id="edit-profile-title" class="form-control" placeholder="e.g. Associate Professor / Student" />
+            </div>
+          </div>
+
+          <!-- Dynamic Role Specific Section -->
+          <div id="edit-profile-dynamic-fields">
+            <!-- Populated dynamically based on user role: student, teacher, or admin -->
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeEditProfileModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 21. Change Password Modal -->
+  <div class="modal-backdrop" id="change-password-modal">
+    <div class="modal-content" style="max-width: 460px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="key" style="color: var(--warning);"></i> Change Account Password
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary);">Ensure your account uses a secure password</p>
+        </div>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="App.closeChangePasswordModal()">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form onsubmit="App.handleChangePasswordSubmit(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <div style="position: relative;">
+              <input type="password" id="change-pass-current" class="form-control" placeholder="••••••••" required />
+              <button type="button" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer;" onclick="App.togglePasswordVisibility('change-pass-current', 'pass-eye-1')">
+                <i data-lucide="eye" id="pass-eye-1"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">New Password (min. 6 characters)</label>
+            <div style="position: relative;">
+              <input type="password" id="change-pass-new" class="form-control" placeholder="••••••••" required minlength="6" />
+              <button type="button" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer;" onclick="App.togglePasswordVisibility('change-pass-new', 'pass-eye-2')">
+                <i data-lucide="eye" id="pass-eye-2"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <div style="position: relative;">
+              <input type="password" id="change-pass-confirm" class="form-control" placeholder="••••••••" required minlength="6" />
+              <button type="button" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer;" onclick="App.togglePasswordVisibility('change-pass-confirm', 'pass-eye-3')">
+                <i data-lucide="eye" id="pass-eye-3"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="change-pass-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeChangePasswordModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="shield-check"></i> Update Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Real-time Toast Notifications Hub -->
+  <div id="toast-container"></div>
+
+  <!-- Script Modules -->
+  <script src="js/seed-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/data-store.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/smart-attendance.js"></script>
+  <script src="js/dashboards.js"></script>
+  <script src="js/student-mgmt.js"></script>
+  <script src="js/teacher-mgmt.js"></script>
+  <script src="js/class-mgmt.js"></script>
+  <script src="js/academic-session-mgmt.js"></script>
+  <script src="js/announcements.js"></script>
+  <script src="js/audit-logs.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,290 @@
+// ==========================================================================
+// SMART ATTENDANCE MANAGEMENT - PRISMA ORM RELATIONAL DATABASE SCHEMA
+// Complete production schema with relationships, foreign keys, indexes, & timestamps
+// ==========================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum PriorityLevel {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum TargetAudience {
+  ALL
+  TEACHERS
+  STUDENTS
+  PARENTS
+}
+
+// 1. User & Authentication
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String
+  name         String
+  role         Role        @default(STUDENT)
+  avatarUrl    String?
+  phone        String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  student      Student?
+  teacher      Teacher?
+  auditLogs    AuditLog[]
+  sentAnnouncements Announcement[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// 2. Academic Session / Semester
+model AcademicSession {
+  id        String   @id @default(uuid())
+  name      String   // e.g. "Fall 2026"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes   Class[]
+
+  @@index([isCurrent])
+}
+
+// 3. Parent / Guardian
+model Guardian {
+  id           String    @id @default(uuid())
+  name         String
+  relationship String    // Father, Mother, Guardian
+  phone        String
+  email        String?
+  address      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  students     Student[]
+
+  @@index([phone])
+}
+
+// 4. Student Entity
+model Student {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rollNumber     String          @unique // e.g. "CS24-042"
+  admissionDate  DateTime        @default(now())
+  dateOfBirth    DateTime
+  department     String
+  semester       String          @default("6th Semester")
+  batch          String          @default("2023-2027")
+  sectionId      String
+  section        Section         @relation(fields: [sectionId], references: [id])
+  guardianId     String?
+  guardian       Guardian?       @relation(fields: [guardianId], references: [id])
+  faceEnrolled   Boolean         @default(false)
+  faceVector     String?         // Encrypted biometric embeddings
+  status         String          @default("Active")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  attendances    Attendance[]
+  leaveRequests  LeaveRequest[]
+
+  @@index([rollNumber])
+  @@index([department])
+  @@index([sectionId])
+}
+
+// 5. Faculty / Teacher Entity
+model Teacher {
+  id           String           @id @default(uuid())
+  userId       String           @unique
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeCode String           @unique // e.g. "FAC-1001"
+  department   String
+  cabinNumber  String?
+  status       String           @default("Active")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  courses      SubjectTeacher[]
+
+  @@index([employeeCode])
+  @@index([department])
+}
+
+// 6. Course / Class Entity
+model Class {
+  id          String           @id @default(uuid())
+  code        String           @unique // e.g. "CS-301"
+  name        String           // e.g. "Distributed Cloud Systems"
+  department  String
+  credits     Int              @default(3)
+  sessionId   String
+  session     AcademicSession  @relation(fields: [sessionId], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  sections    Section[]
+  teachers    SubjectTeacher[]
+  attendances Attendance[]
+
+  @@index([code])
+  @@index([sessionId])
+}
+
+// 7. Class Section Entity
+model Section {
+  id          String           @id @default(uuid())
+  name        String           // e.g. "Section A"
+  classId     String
+  class       Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  roomNumber  String?
+  schedule    String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  students    Student[]
+  teachers    SubjectTeacher[]
+  attendances Attendance[]
+
+  @@unique([classId, name])
+  @@index([classId])
+}
+
+// 8. Subject Teacher Junction
+model SubjectTeacher {
+  id        String   @id @default(uuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  sectionId String?
+  section   Section? @relation(fields: [sectionId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([classId, teacherId, sectionId])
+  @@index([classId])
+  @@index([teacherId])
+}
+
+// 9. Attendance Record
+model Attendance {
+  id               String            @id @default(uuid())
+  studentId        String
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId          String
+  class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sectionId        String
+  section          Section           @relation(fields: [sectionId], references: [id])
+  date             DateTime          @db.Date
+  time             String
+  status           AttendanceStatus  @default(PRESENT)
+  method           String            @default("Dynamic QR") // Dynamic QR, AI Face Scan, Geofence, PIN, Manual
+  geofenceVerified Boolean           @default(true)
+  confidenceScore  Float?            @default(100.0)
+  isFinalized      Boolean           @default(false)
+  deviceInfo       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  history          AttendanceHistory[]
+
+  @@unique([studentId, classId, date]) // Prevent duplicate check-in for same student/class/day
+  @@index([studentId])
+  @@index([classId])
+  @@index([date])
+  @@index([status])
+}
+
+// 10. Attendance Audit Trail / Modification History
+model AttendanceHistory {
+  id             String            @id @default(uuid())
+  attendanceId   String
+  attendance     Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  previousStatus AttendanceStatus
+  newStatus      AttendanceStatus
+  modifiedBy     String            // Authorizer Name/ID
+  reason         String            // Justification
+  modifiedAt     DateTime          @default(now())
+
+  @@index([attendanceId])
+}
+
+// 11. Student Leave Application
+model LeaveRequest {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  dateFrom   DateTime @db.Date
+  dateTo     DateTime @db.Date
+  reason     String
+  documentUrl String?
+  status     String   @default("Pending") // Pending, Approved, Rejected
+  reviewedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+// 12. Announcements & Broadcasts
+model Announcement {
+  id             String         @id @default(uuid())
+  title          String
+  content        String
+  targetAudience TargetAudience @default(ALL)
+  priority       PriorityLevel  @default(NORMAL)
+  authorId       String
+  author         User           @relation(fields: [authorId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([targetAudience])
+  @@index([priority])
+}
+
+// 13. System Activity & Audit Trail
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String   // USER_LOGIN, ATTENDANCE_MARKED, ATTENDANCE_OVERRIDE, etc.
+  category  String   // Authentication, Attendance, Faculty, Academics, System
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  details   String
+  ipAddress String?
+  status    String   @default("Success")
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([category])
+  @@index([createdAt])
+}

@@ -1,0 +1,20 @@
+{
+  "name": "smart-attendance-management",
+  "version": "2.0.0",
+  "description": "Online Smart Student Attendance Management System - Enterprise Academic Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo \"Ready for deployment\""
+  },
+  "keywords": [
+    "smart-attendance",
+    "attendance-system",
+    "face-recognition",
+    "qr-code",
+    "geofencing"
+  ],
+  "author": "",
+  "license": "MIT"
+}
