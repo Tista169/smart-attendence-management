@@ -102,37 +102,60 @@ function handleRequest(req, res) {
   // Static File Serving
   const reqUrlClean = (req.url || '/').split('?')[0];
   const relativePath = reqUrlClean === '/' ? 'index.html' : reqUrlClean.replace(/^\/+/, '');
-  const filePath = path.join(__dirname, relativePath);
-  const extname = path.extname(filePath).toLowerCase();
+  const candidatePaths = [
+    path.join(process.cwd(), relativePath),
+    path.join(__dirname, relativePath),
+    path.join(__dirname, '..', relativePath)
+  ];
+
+  let resolvedPath = null;
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+      resolvedPath = p;
+      break;
+    }
+  }
+
+  const extname = path.extname(relativePath).toLowerCase();
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      if (error.code === 'ENOENT') {
-        // Fallback to index.html for non-asset routes
-        if (!extname) {
-          fs.readFile(path.join(__dirname, 'index.html'), (err2, indexContent) => {
-            if (err2) {
-              res.writeHead(404, { 'Content-Type': 'text/plain' });
-              res.end('404 Not Found');
-            } else {
-              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-              res.end(indexContent, 'utf-8');
-            }
-          });
-          return;
-        }
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('404 Not Found');
-      } else {
-        res.writeHead(500);
+  if (resolvedPath) {
+    fs.readFile(resolvedPath, (error, content) => {
+      if (error) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Server Error: ${error.code}`);
+      } else {
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(content);
       }
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content, 'utf-8');
+    });
+    return;
+  }
+
+  // Fallback to index.html if route has no extension
+  if (!extname) {
+    const indexCandidates = [
+      path.join(process.cwd(), 'index.html'),
+      path.join(__dirname, 'index.html')
+    ];
+    for (const ip of indexCandidates) {
+      if (fs.existsSync(ip)) {
+        fs.readFile(ip, (err2, indexContent) => {
+          if (err2) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found');
+          } else {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(indexContent);
+          }
+        });
+        return;
+      }
     }
-  });
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('404 Not Found');
 }
 
 const server = http.createServer(handleRequest);
