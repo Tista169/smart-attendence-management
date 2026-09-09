@@ -1,4 +1,7 @@
 .git
 .gitignore
+server.js
 server.ps1
 README.md
+database
+prisma
